@@ -108,6 +108,24 @@ tbody tr:last-child td{border-bottom:none}
 .btn-sm{padding:8px 16px;font-size:13px}
 .empty{text-align:center;color:var(--ink-muted);font-style:italic;padding:40px;font-family:'Cormorant Garamond',serif;font-size:18px}
 .loading{text-align:center;color:var(--ink-soft);padding:40px}
+/* Recensione sposi */
+.review-box{background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius);padding:26px 28px;margin-top:24px}
+.review-box .rb-title{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:26px;color:var(--terracotta);margin-bottom:4px}
+.review-box .rb-sub{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--ink-soft);margin-bottom:18px}
+.star-pick{display:flex;gap:6px;margin-bottom:16px}
+.star-pick .st{font-size:34px;line-height:1;cursor:pointer;color:rgba(184,156,90,.3);transition:color .12s,transform .12s}
+.star-pick .st:hover{transform:scale(1.12)}
+.star-pick .st.on{color:var(--gold)}
+.review-box textarea{width:100%;padding:12px 14px;border:1.5px solid rgba(94,130,94,.35);border-radius:var(--radius-sm);font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--ink);background:var(--bg-elevated);resize:vertical;min-height:90px}
+.review-box textarea:focus{outline:none;border-color:var(--terracotta);box-shadow:0 0 0 3px rgba(94,130,94,.15)}
+.review-box .rb-actions{margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.review-box .rb-thanks{font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--terracotta);font-size:15px}
+.review-saved{display:flex;flex-direction:column;gap:10px}
+.review-saved .rs-stars{font-size:24px;letter-spacing:3px;color:var(--gold)}
+.review-saved .rs-stars .empty{color:rgba(184,156,90,.3)}
+.review-saved .rs-text{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:19px;color:var(--ink);line-height:1.5}
+.review-saved .rs-meta{font-size:13px;color:var(--ink-muted)}
+.review-saved .rs-edit{background:none;border:none;color:var(--terracotta);font-family:inherit;font-size:14px;cursor:pointer;text-decoration:underline;padding:0;width:fit-content}
 </style>
 </head>
 <body>
@@ -220,7 +238,71 @@ function renderContent(){
         <tbody>${cats.map(renderCatRow).join('')}</tbody>
       </table></div>
     `}
+    ${renderReviewBox()}
   `;
+}
+
+let reviewDraftRating = 0;
+
+function renderReviewBox(){
+  const r = data.review;
+  if(r && r.rating){
+    return `
+      <div class="review-box">
+        <div class="rb-title">La vostra recensione</div>
+        <div class="review-saved">
+          <div class="rs-stars">${[1,2,3,4,5].map(i=>`<span class="${i<=r.rating?'':'empty'}">★</span>`).join('')}</div>
+          ${r.text ? `<div class="rs-text">“${esc(r.text)}”</div>` : ''}
+          <div class="rs-meta">Inviata il ${esc(r.date||'')}${r.author?' · '+esc(r.author):''}</div>
+          <button class="rs-edit" onclick="startEditReview()">Modifica la recensione</button>
+        </div>
+      </div>`;
+  }
+  return reviewFormHtml();
+}
+
+function reviewFormHtml(){
+  const r = data.review || {};
+  reviewDraftRating = r.rating || 0;
+  return `
+    <div class="review-box" id="review-box">
+      <div class="rb-title">Lasciate una recensione</div>
+      <div class="rb-sub">Come è stata la vostra esperienza con la wedding planner? Il vostro giudizio sarà visibile a lei.</div>
+      <div class="star-pick" id="star-pick">
+        ${[1,2,3,4,5].map(i=>`<span class="st ${i<=reviewDraftRating?'on':''}" data-v="${i}" onclick="setReviewStar(${i})">★</span>`).join('')}
+      </div>
+      <textarea id="rev-text" placeholder="Raccontate com'è andata, cosa avete apprezzato...">${esc(r.text||'')}</textarea>
+      <div class="rb-actions">
+        <button class="btn btn-primary" onclick="submitReview()">${r.rating?'Aggiorna recensione':'Invia recensione'}</button>
+        <span id="rev-msg" class="rb-thanks"></span>
+      </div>
+    </div>`;
+}
+
+function setReviewStar(v){
+  reviewDraftRating = v;
+  document.querySelectorAll('#star-pick .st').forEach(el=>{
+    el.classList.toggle('on', Number(el.dataset.v) <= v);
+  });
+}
+
+function startEditReview(){
+  const box = document.querySelector('.review-box');
+  if(box) box.outerHTML = reviewFormHtml();
+}
+
+async function submitReview(){
+  const msg = document.getElementById('rev-msg');
+  const text = document.getElementById('rev-text').value.trim();
+  if(!reviewDraftRating){ msg.style.color='var(--rose)'; msg.textContent='Selezionate almeno una stella.'; return; }
+  msg.style.color='var(--ink-soft)'; msg.textContent='Invio...';
+  try{
+    const j = await api(`/wedding/${WEDDING_ID}/review`, { method:'POST', body:{ pin:session.pin, rating:reviewDraftRating, text, role:session.role } });
+    data.review = j.review;
+    renderContent();
+  }catch(e){
+    msg.style.color='var(--rose)'; msg.textContent = e.message || 'Errore nell\'invio.';
+  }
 }
 
 function renderCatRow(cat){
