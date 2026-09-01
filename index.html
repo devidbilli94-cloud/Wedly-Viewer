@@ -220,6 +220,10 @@ td,th{ border-color:rgba(255,255,255,.55)!important; }
 .tbl-editor label{display:block;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:15px;color:var(--terracotta);margin-bottom:4px}
 .tbl-editor input,.tbl-editor select{width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid rgba(94,130,94,.35);border-radius:var(--radius-sm);background:rgba(255,255,255,.6);font-family:inherit;font-size:14px;color:var(--ink)}
 .tbl-editor input:focus,.tbl-editor select:focus{outline:none;border-color:var(--terracotta)}
+.orient-toggle{display:flex;gap:0;border:1.5px solid rgba(94,130,94,.35);border-radius:var(--radius-sm);overflow:hidden}
+.orient-toggle button{flex:1;border:none;background:rgba(255,255,255,.5);padding:9px 6px;font-family:inherit;font-size:13px;color:var(--ink-soft);cursor:pointer;transition:all .15s}
+.orient-toggle button:hover{color:var(--terracotta)}
+.orient-toggle button.on{background:var(--terracotta);color:#fff;font-weight:600}
 .seat-pick{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto;margin:6px 0 4px}
 .seat-pick button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:rgba(255,253,249,.5);border:1px solid rgba(94,130,94,.25);border-radius:var(--radius-sm);padding:10px 12px;font-family:inherit;font-size:14px;color:var(--ink);cursor:pointer}
 .seat-pick button:hover{border-color:var(--terracotta);color:var(--terracotta)}
@@ -552,6 +556,7 @@ function aggiungiTavolo(){
     x: 150 + (n % 3) * 200,
     y: 150 + Math.floor(n / 3) * 200,
     assignments: new Array(8).fill(null),
+    orient: 'h',
     createdBy: 'couple',
   });
   tavoloSel = tavoli()[tavoli().length - 1].id;
@@ -578,6 +583,14 @@ function campoTavolo(id, campo, val){
     t.assignments = new Array(n).fill(null).map((_, i) => vecchi[i] || null);
     t.seats = n;
   } else { t[campo] = val; }
+  salvaTavoli();
+  renderContent();
+}
+
+// Ruota il tavolo rettangolare: orizzontale <-> verticale
+function ruotaTavolo(id, verso){
+  const t = tavoli().find(x=>x.id===id); if(!t) return;
+  t.orient = verso === 'v' ? 'v' : 'h';
   salvaTavoli();
   renderContent();
 }
@@ -808,20 +821,36 @@ function geometriaTavolo(t){
     return { tonda: true, w, h: w, sx: PAD, sy: PAD, sw: d, sh: d, posti };
   }
 
-  const sopra = Math.ceil(n / 2), sotto = n - sopra;
-  const sw = Math.max(110, sopra * 34 + 26), sh = 82;
+  // Rettangolare: due lati contrapposti. In verticale il tavolo ruota di 90°
+  // e i posti passano dai lati lungo/corto alle colonne sinistra e destra.
+  const primo = Math.ceil(n / 2), secondo = n - primo;
+  const lungo = Math.max(110, primo * 34 + 26);
+  const verticale = t.orient === 'v';
+
+  if (verticale) {
+    const sw = 82, sh = lungo;
+    const w = sw + PAD * 2, h = sh + PAD * 2;
+    const posti = [];
+    const colonna = (quanti, base, x) => {
+      for (let i = 0; i < quanti; i++) {
+        posti[base + i] = { x: Math.round(x), y: Math.round(PAD + (i + 0.5) * (sh / quanti) - r) };
+      }
+    };
+    if (primo) colonna(primo, 0, PAD - GAP - POSTO);     // colonna a sinistra
+    if (secondo) colonna(secondo, primo, PAD + sw + GAP); // colonna a destra
+    return { tonda: false, w, h, sx: PAD, sy: PAD, sw, sh, posti };
+  }
+
+  const sw = lungo, sh = 82;
   const w = sw + PAD * 2, h = sh + PAD * 2;
   const posti = [];
-  const fila = (quanti, indiceBase, y) => {
+  const fila = (quanti, base, y) => {
     for (let i = 0; i < quanti; i++) {
-      posti[indiceBase + i] = {
-        x: Math.round(PAD + (i + 0.5) * (sw / quanti) - r),
-        y: Math.round(y),
-      };
+      posti[base + i] = { x: Math.round(PAD + (i + 0.5) * (sw / quanti) - r), y: Math.round(y) };
     }
   };
-  if (sopra) fila(sopra, 0, PAD - GAP - POSTO);       // sopra il bordo
-  if (sotto) fila(sotto, sopra, PAD + sh + GAP);      // sotto il bordo
+  if (primo) fila(primo, 0, PAD - GAP - POSTO);          // fila sopra
+  if (secondo) fila(secondo, primo, PAD + sh + GAP);     // fila sotto
   return { tonda: false, w, h, sx: PAD, sy: PAD, sw, sh, posti };
 }
 
@@ -874,6 +903,15 @@ function renderTavoli(){
         <div class="fld"><label>Posti</label>
           <input type="number" min="0" max="30" value="${sel.seats||0}" onchange="campoTavolo('${sel.id}','seats',this.value)"></div>
       </div>
+      ${sel.shape==='rect' ? `
+      <div class="row" style="margin-top:10px">
+        <div class="fld"><label>Orientamento</label>
+          <div class="orient-toggle">
+            <button class="${sel.orient!=='v'?'on':''}" onclick="ruotaTavolo('${sel.id}','h')">⬌ Orizzontale</button>
+            <button class="${sel.orient==='v'?'on':''}" onclick="ruotaTavolo('${sel.id}','v')">⬍ Verticale</button>
+          </div>
+        </div>
+      </div>` : ''}
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost" onclick="eliminaTavolo('${sel.id}')">Elimina tavolo</button>
         <button class="btn btn-ghost" onclick="selezionaTavolo('${sel.id}')">Chiudi</button>
