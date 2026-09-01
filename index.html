@@ -204,7 +204,20 @@ td,th{ border-color:rgba(255,255,255,.55)!important; }
 .cal-ev.app{background:rgba(94,130,94,.20);color:#3f6b2b}
 .cal-ev.acc{background:rgba(184,156,90,.26);color:#8a6d2f;font-weight:600}
 .cal-ev.acc.fatto{opacity:.5;text-decoration:line-through}
-.cal-ev.noz{background:linear-gradient(135deg,#2d4329,#4a6e45);color:#f6f0e7;text-align:center}
+.cal-ev.imp{background:rgba(83,78,255,.16);color:#534eff;font-weight:600}
+.cal-ev.imp.fatto{opacity:.5;text-decoration:line-through}
+.cal-ev.piu{color:var(--ink-muted);font-style:italic}
+.cal-ev.noz{background:linear-gradient(135deg,#2d4329,#4a6e45);border:1px solid rgba(184,156,90,.55);color:#f6f0e7;text-align:center;padding:3px 3px 2px;white-space:normal}
+.cal-ev.noz .noz-fl{font-size:7px;color:var(--gold);letter-spacing:.04em;line-height:1}
+.cal-ev.noz .noz-nomi{font-family:'Pinyon Script',cursive;font-size:12px;line-height:1.05}
+.cal-ev.noz .noz-amp{color:var(--gold)}
+.cal-ev.noz .noz-tag{font-size:6px;text-transform:uppercase;letter-spacing:.16em;color:var(--gold);font-weight:700}
+.cal-day.nozze{border-color:rgba(184,156,90,.5)}
+.cal-day .num{display:flex;align-items:center;justify-content:flex-end;gap:4px}
+.cal-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.cal-dot.rosso{background:#e05252;box-shadow:0 0 4px rgba(224,82,82,.5)}
+.cal-dot.giallo{background:#d99a3c;box-shadow:0 0 4px rgba(217,154,60,.5)}
+.oggi-btn{width:auto!important;padding:0 12px;font-size:12px!important;border-radius:999px!important}
 .cal-legenda{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-bottom:16px;font-size:12px;color:var(--ink-soft)}
 .cal-legenda span{display:inline-flex;align-items:center;gap:6px}
 .cal-legenda i{width:11px;height:11px;border-radius:3px;display:inline-block}
@@ -551,8 +564,23 @@ function eventiCalendario(){
         pagato:!!a.paid, fornitore:r.title||r.category||'' });
     });
   });
+  (data.tasks||[]).forEach(t=>{
+    if(!t.deadline) return;
+    ev.push({ tipo:'imp', data:t.deadline, titolo:t.title||'Impegno',
+      categoria:t.category||'', fatto:!!t.done, essenziale:!!t.essential });
+  });
   if(data.couple && data.couple.date) ev.push({ tipo:'noz', data:data.couple.date, titolo:'Il Grande Giorno' });
-  return ev.sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const ordine = { noz:0, app:1, acc:2, imp:3 };
+  return ev.sort((a,b)=>{
+    if((a.data||'') !== (b.data||'')) return (a.data||'').localeCompare(b.data||'');
+    return (ordine[a.tipo]??9) - (ordine[b.tipo]??9);
+  });
+}
+
+function vaiAOggi(){
+  const o = new Date();
+  meseCal = new Date(o.getFullYear(), o.getMonth(), 1);
+  renderContent();
 }
 
 function cambiaMese(delta){
@@ -580,14 +608,36 @@ function renderAppuntamenti(){
     const delMese = d.getMonth() === meseCal.getMonth();
     const isOggi = d.getTime() === oggi.getTime();
     const suoi = ev.filter(e=>e.data === iso);
-    celle.push(`<div class="cal-day ${delMese?'':'fuori'} ${isOggi?'oggi':''}">
-      <div class="num">${d.getDate()}</div>
-      ${suoi.slice(0,3).map(e=>{
-        if(e.tipo==='noz') return `<div class="cal-ev noz" title="Il Grande Giorno">❦</div>`;
+    const nozze = suoi.filter(e=>e.tipo==='noz');
+    const altri = suoi.filter(e=>e.tipo!=='noz');
+
+    // pallino di urgenza: cose ancora da fare in questa giornata
+    const daFare = suoi.some(e => (e.tipo==='acc' && !e.pagato) || (e.tipo==='imp' && !e.fatto) || e.tipo==='app');
+    const giorniA = Math.round((d - oggi)/86400000);
+    let pallino = '';
+    if(delMese && daFare){
+      const scaduto = suoi.some(e => (e.tipo==='acc' && !e.pagato) || (e.tipo==='imp' && !e.fatto));
+      if(giorniA < 0 && scaduto) pallino = '<span class="cal-dot giallo" title="In ritardo"></span>';
+      else if(giorniA >= 0 && giorniA <= 7) pallino = '<span class="cal-dot rosso" title="Entro la settimana"></span>';
+      else if(giorniA > 7 && giorniA <= 30) pallino = '<span class="cal-dot giallo" title="Prossimamente"></span>';
+    }
+
+    const cardNozze = nozze.map(()=>`
+      <div class="cal-ev noz" title="Il Grande Giorno">
+        <div class="noz-fl">━━ ❦ ━━</div>
+        <div class="noz-nomi">${esc(data.couple.bride||'Sposa')} <span class="noz-amp">&amp;</span> ${esc(data.couple.groom||'Sposo')}</div>
+        <div class="noz-tag">il grande giorno</div>
+      </div>`).join('');
+
+    celle.push(`<div class="cal-day ${delMese?'':'fuori'} ${isOggi?'oggi':''} ${nozze.length?'nozze':''}">
+      <div class="num">${pallino}<span>${d.getDate()}</span></div>
+      ${cardNozze}
+      ${altri.slice(0,3).map(e=>{
         if(e.tipo==='acc') return `<div class="cal-ev acc ${e.pagato?'fatto':''}" title="${esc(e.titolo)}${e.fornitore?' · '+esc(e.fornitore):''} — € ${money(e.importo)}${e.pagato?' (versato)':''}">💶 ${money(e.importo)} · ${esc(e.titolo)}</div>`;
-        return `<div class="cal-ev app" title="${esc(e.titolo)}">${esc(e.titolo)}</div>`;
+        if(e.tipo==='imp') return `<div class="cal-ev imp ${e.fatto?'fatto':''}" title="${esc(e.titolo)}${e.categoria?' · '+esc(e.categoria):''}">✓ ${esc(e.titolo)}</div>`;
+        return `<div class="cal-ev app" title="${esc(e.titolo)}${e.ora?' · '+esc(e.ora):''}">${esc(e.titolo)}${e.ora?' · '+esc(e.ora):''}</div>`;
       }).join('')}
-      ${suoi.length>3?`<div class="cal-ev" style="color:var(--ink-muted)">+${suoi.length-3}</div>`:''}
+      ${altri.length>3?`<div class="cal-ev piu">+${altri.length-3}</div>`:''}
     </div>`);
   }
 
@@ -616,6 +666,20 @@ function renderAppuntamenti(){
       </div>`;
     }).join('')}` : '';
 
+  const impegni = ev.filter(e=>e.tipo==='imp' && !e.fatto);
+  const listaImpegni = impegni.length ? `
+    <div class="sec-title" style="margin-top:22px">Impegni in scadenza</div>
+    ${impegni.map(t=>{
+      const g = giorno(t.data);
+      return `<div class="appt ${g.passato?'past':''}" style="border-color:rgba(83,78,255,.35)">
+        <div class="when"><div class="d">${g.n}</div><div class="m">${g.m}</div></div>
+        <div class="body"><div class="ti">${esc(t.titolo)}</div>
+          ${t.categoria?`<div class="ln">${esc(t.categoria)}</div>`:''}
+          ${t.essenziale?'<div class="ln" style="color:#b9772a">Essenziale</div>':''}
+        </div>
+      </div>`;
+    }).join('')}` : '';
+
   const listaAppunt = appunt.length ? `
     <div class="sec-title" style="margin-top:22px">Appuntamenti</div>
     ${appunt.map(a=>{
@@ -629,7 +693,11 @@ function renderAppuntamenti(){
   return `
     <div class="cal-top">
       <div class="cal-mese">${nomeMese}</div>
-      <div class="cal-nav"><button onclick="cambiaMese(-1)" title="Mese precedente">‹</button><button onclick="cambiaMese(1)" title="Mese successivo">›</button></div>
+      <div class="cal-nav">
+        <button onclick="cambiaMese(-1)" title="Mese precedente">‹</button>
+        <button class="oggi-btn" onclick="vaiAOggi()" title="Vai al mese corrente">oggi</button>
+        <button onclick="cambiaMese(1)" title="Mese successivo">›</button>
+      </div>
     </div>
     <div class="cal-grid">
       <div class="cal-dows">${dows.map(d=>`<div class="cal-dow">${d}</div>`).join('')}</div>
@@ -638,10 +706,12 @@ function renderAppuntamenti(){
     <div class="cal-legenda">
       <span><i style="background:rgba(94,130,94,.35)"></i> Appuntamenti</span>
       <span><i style="background:rgba(184,156,90,.5)"></i> Acconti</span>
+      <span><i style="background:rgba(83,78,255,.28)"></i> Impegni</span>
       <span><i style="background:linear-gradient(135deg,#2d4329,#4a6e45)"></i> Il Grande Giorno</span>
     </div>
-    ${(!acconti.length && !appunt.length) ? '<div class="empty">Non ci sono ancora appuntamenti né scadenze.</div>' : ''}
+    ${(!acconti.length && !appunt.length && !impegni.length) ? '<div class="empty">Non ci sono ancora appuntamenti né scadenze.</div>' : ''}
     ${listaAcconti}
+    ${listaImpegni}
     ${listaAppunt}
   `;
 }
