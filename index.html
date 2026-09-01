@@ -224,6 +224,7 @@ td,th{ border-color:rgba(255,255,255,.55)!important; }
 .seat-pick button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:rgba(255,253,249,.5);border:1px solid rgba(94,130,94,.25);border-radius:var(--radius-sm);padding:10px 12px;font-family:inherit;font-size:14px;color:var(--ink);cursor:pointer}
 .seat-pick button:hover{border-color:var(--terracotta);color:var(--terracotta)}
 .seat-pick .busy{opacity:.55}
+.amt-fee{font-size:11.5px;color:var(--ink-muted);margin-top:2px;white-space:nowrap;font-style:italic}
 .sync-note{font-size:12.5px;color:var(--ink-muted);text-align:center;margin-top:10px;font-style:italic}
 .g-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
 @media(max-width:520px){.g-stats{grid-template-columns:repeat(2,1fr)}}
@@ -378,9 +379,30 @@ function renderContent(){
   `;
 }
 
+// La parcella della wedding planner: importo base + 10% del resto del preventivo
+const PERC_PLANNER = 0.10;
+function isCatPlanner(nome){
+  return /planner/i.test((nome||'').normalize('NFD').replace(/[\u0300-\u036f]/g,''));
+}
+function baseCat(cat){
+  const ch = cat.rows.find(r=>r.chosen);
+  if(ch) return ch.amount || 0;
+  return Math.min(...cat.rows.map(r=>r.amount||0));
+}
+function totaliPreventivo(cats){
+  let altre = 0;
+  cats.forEach(c=>{ if(!isCatPlanner(c.name)) altre += baseCat(c); });
+  const parcella = Math.round(altre * PERC_PLANNER * 100)/100;
+  let totale = altre;
+  cats.forEach(c=>{ if(isCatPlanner(c.name)) totale += baseCat(c) + parcella; });
+  return { altre, parcella, totale };
+}
+
 function renderPreventivo(){
   const cats = groupByCategory();
-  const total = cats.reduce((s,c)=>{const ch=c.rows.find(r=>r.chosen);const min=Math.min(...c.rows.map(r=>r.amount||0));return s+(ch?(ch.amount||0):min);},0);
+  const T = totaliPreventivo(cats);
+  const total = T.totale;
+  parcellaCorrente = T.parcella;
   return `
     ${total>0 ? `<div class="total-banner"><div class="icon">🧾</div><div><div class="headline">Totale Preventivo: <strong>€ ${money(total)}</strong></div></div></div>` : ''}
     ${cats.length===0 ? `<div class="empty">La vostra wedding planner non ha ancora aggiunto preventivi.</div>` : `
@@ -947,14 +969,18 @@ async function submitReview(){
   }
 }
 
+let parcellaCorrente = 0;
+
 function renderCatRow(cat){
   const chosen = cat.rows.find(r=>r.chosen);
   const min = Math.min(...cat.rows.map(r=>r.amount||0));
   const totalC = cat.rows.reduce((s,r)=>s+((r.comments||[]).length),0);
   const key = cat.name.replace(/[^a-zA-Z0-9_]/g,'_');
+  const base = chosen ? (chosen.amount||0) : min;
+  const conParcella = isCatPlanner(cat.name) && parcellaCorrente;
   return `<tr>
     <td><div class="cat-name">${esc(cat.name)}</div>${chosen?`<div class="cat-sub">${esc(chosen.title)}</div>`:(cat.rows.length>1?`<div class="cat-sub">${cat.rows.length} opzioni</div>`:'')}</td>
-    <td><div class="amt">€ ${money(chosen?chosen.amount:min)}</div></td>
+    <td><div class="amt">€ ${money(conParcella ? base + parcellaCorrente : base)}</div>${conParcella?`<div class="amt-fee">€ ${money(base)} + 10% (€ ${money(parcellaCorrente)})</div>`:''}</td>
     <td>
       <button class="count-btn" onclick="openCat('${key}')">${cat.rows.length} ▸</button>
       <span class="comments-count">💬 ${totalC}</span>
