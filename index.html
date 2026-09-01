@@ -196,7 +196,7 @@ td,th{ border-color:rgba(255,255,255,.55)!important; }
 
 /* ===== Tavoli ===== */
 .tbl-wrap{position:relative;background:rgba(255,253,249,.45);border:1px solid rgba(255,255,255,.6);border-radius:var(--radius);min-height:380px;overflow:auto}
-.tnode{position:absolute}
+.tnode{position:absolute;transform:translate(-50%,-50%)}
 .tshape{position:absolute;background:rgba(94,130,94,.14);border:1.5px solid rgba(94,130,94,.45);display:flex;align-items:center;justify-content:center;text-align:center;font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:600;color:var(--terracotta);padding:4px}
 .seat{position:absolute;width:22px;height:22px;border-radius:50%;background:var(--bg-card);border:1.5px solid var(--line);font-size:8.5px;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);overflow:hidden}
 .seat.taken{background:rgba(94,130,94,.20);border-color:var(--terracotta);color:var(--terracotta);font-weight:700}
@@ -527,8 +527,8 @@ function aggiungiTavolo(){
     name: 'Tavolo ' + (n + 1),
     shape: 'round',
     seats: 8,
-    x: 30 + (n % 4) * 190,
-    y: 30 + Math.floor(n / 4) * 190,
+    x: 150 + (n % 3) * 200,
+    y: 150 + Math.floor(n / 3) * 200,
     assignments: new Array(8).fill(null),
     createdBy: 'couple',
   });
@@ -819,7 +819,7 @@ function renderTavoli(){
   }
 
   let maxX=0, maxY=0;
-  tables.forEach(t=>{ const g=geometriaTavolo(t); maxX=Math.max(maxX,(t.x||0)+g.w+20); maxY=Math.max(maxY,(t.y||0)+g.h+20); });
+  tables.forEach(t=>{ const g=geometriaTavolo(t); maxX=Math.max(maxX,(t.x||0)+g.w/2+30); maxY=Math.max(maxY,(t.y||0)+g.h/2+30); });
 
   const nodes = tables.map(t=>{
     const g = geometriaTavolo(t);
