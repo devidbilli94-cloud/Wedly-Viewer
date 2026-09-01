@@ -197,7 +197,13 @@ td,th{ border-color:rgba(255,255,255,.55)!important; }
 .cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .cal-day{min-height:86px;border-radius:10px;border:1px solid rgba(255,255,255,.55);background:rgba(255,255,255,.28);padding:4px 4px 3px;display:flex;flex-direction:column;gap:2px}
 .cal-day.fuori{opacity:.35}
-.cal-day.oggi{border-color:var(--terracotta);box-shadow:0 0 0 2px rgba(94,130,94,.16)}
+.cal-day.oggi{border-color:#49ffe4;background:rgba(73,255,228,.10);box-shadow:0 0 0 2px #49ffe4,0 0 12px rgba(73,255,228,.40)}
+.cal-day.oggi .num{color:#1a8a78;font-weight:700}
+/* stessa segnalazione di urgenza dell'app della planner */
+.cal-day.scaduto{border-color:var(--burgundy);background:rgba(122,46,59,.10)}
+.cal-day.settimana{border-color:#ff6363;background:rgba(255,99,99,.14);box-shadow:0 0 0 1px #ff6363,0 0 10px rgba(255,99,99,.30)}
+.cal-day.mese{border-color:#feff50;background:rgba(254,255,80,.22);box-shadow:0 0 0 1px #b39400,0 0 8px rgba(254,255,80,.55)}
+.cal-day.fuori.scaduto,.cal-day.fuori.settimana,.cal-day.fuori.mese{box-shadow:none;background:rgba(255,255,255,.28);border-color:rgba(255,255,255,.55)}
 .cal-day .num{font-size:11.5px;color:var(--ink-soft);text-align:right;padding-right:2px}
 .cal-day.oggi .num{color:var(--terracotta);font-weight:700}
 .cal-ev{font-size:9.5px;line-height:1.25;border-radius:6px;padding:4px 6px;white-space:normal;word-break:break-word;overflow-wrap:anywhere}
@@ -216,9 +222,11 @@ td,th{ border-color:rgba(255,255,255,.55)!important; }
 .cal-ev.noz .noz-tag{font-size:6px;text-transform:uppercase;letter-spacing:.16em;color:var(--gold);font-weight:700}
 .cal-day.nozze{border-color:rgba(184,156,90,.5)}
 .cal-day .num{display:flex;align-items:center;justify-content:flex-end;gap:4px}
-.cal-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.cal-dot.rosso{background:#e05252;box-shadow:0 0 4px rgba(224,82,82,.5)}
-.cal-dot.giallo{background:#d99a3c;box-shadow:0 0 4px rgba(217,154,60,.5)}
+.cal-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;animation:calDotPulse 1.6s ease-in-out infinite}
+.cal-dot.rosso{background:#ff6363;box-shadow:0 0 4px rgba(255,99,99,.85),0 0 9px rgba(255,99,99,.55),0 0 16px rgba(255,99,99,.3),inset 0 1px 1px rgba(255,255,255,.4)}
+.cal-dot.giallo{background:#feff50;box-shadow:0 0 4px rgba(254,255,80,.9),0 0 9px rgba(254,255,80,.6),0 0 16px rgba(254,255,80,.35),inset 0 1px 1px rgba(255,255,255,.4)}
+@keyframes calDotPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.22);opacity:.88}}
+.cal-day .num{font-weight:700;color:var(--ink)}
 .oggi-btn{width:auto!important;padding:0 12px;font-size:12px!important;border-radius:999px!important}
 .cal-legenda{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-bottom:16px;font-size:12px;color:var(--ink-soft)}
 .cal-legenda span{display:inline-flex;align-items:center;gap:6px}
@@ -613,15 +621,22 @@ function renderAppuntamenti(){
     const nozze = suoi.filter(e=>e.tipo==='noz');
     const altri = suoi.filter(e=>e.tipo!=='noz');
 
-    // pallino di urgenza: cose ancora da fare in questa giornata
-    const daFare = suoi.some(e => (e.tipo==='acc' && !e.pagato) || (e.tipo==='imp' && !e.fatto) || e.tipo==='app');
+    // Urgenza: stesse regole e stessi colori del calendario della planner.
+    // In ritardo = bordo bordeaux; entro 7 giorni = rosso; entro 30 = giallo.
+    const inSospeso = suoi.some(e => (e.tipo==='acc' && !e.pagato) || (e.tipo==='imp' && !e.fatto));
+    const cePuntoFisso = suoi.some(e => e.tipo==='app');
     const giorniA = Math.round((d - oggi)/86400000);
-    let pallino = '';
-    if(delMese && daFare){
-      const scaduto = suoi.some(e => (e.tipo==='acc' && !e.pagato) || (e.tipo==='imp' && !e.fatto));
-      if(giorniA < 0 && scaduto) pallino = '<span class="cal-dot giallo" title="In ritardo"></span>';
-      else if(giorniA >= 0 && giorniA <= 7) pallino = '<span class="cal-dot rosso" title="Entro la settimana"></span>';
-      else if(giorniA > 7 && giorniA <= 30) pallino = '<span class="cal-dot giallo" title="Prossimamente"></span>';
+    let pallino = '', urgenza = '';
+    if(delMese){
+      if(giorniA < 0){
+        if(inSospeso){ urgenza = 'scaduto'; pallino = '<span class="cal-dot giallo" title="In ritardo"></span>'; }
+      } else if(giorniA === 0){
+        if(inSospeso || cePuntoFisso) pallino = '<span class="cal-dot rosso" title="Oggi"></span>';
+      } else if(giorniA <= 7){
+        if(inSospeso || cePuntoFisso){ urgenza = 'settimana'; pallino = '<span class="cal-dot rosso" title="Entro la settimana"></span>'; }
+      } else if(giorniA <= 30){
+        if(inSospeso || cePuntoFisso){ urgenza = 'mese'; pallino = '<span class="cal-dot giallo" title="Prossimamente"></span>'; }
+      }
     }
 
     const cardNozze = nozze.map(()=>`
@@ -631,7 +646,7 @@ function renderAppuntamenti(){
         <div class="noz-tag">il grande giorno</div>
       </div>`).join('');
 
-    celle.push(`<div class="cal-day ${delMese?'':'fuori'} ${isOggi?'oggi':''} ${nozze.length?'nozze':''}">
+    celle.push(`<div class="cal-day ${delMese?'':'fuori'} ${urgenza} ${isOggi?'oggi':''} ${nozze.length?'nozze':''}">
       <div class="num">${pallino}<span>${d.getDate()}</span></div>
       ${cardNozze}
       ${altri.slice(0,3).map(e=>{
