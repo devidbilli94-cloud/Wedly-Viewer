@@ -195,7 +195,7 @@ td,th{ border-color:rgba(255,255,255,.55)!important; }
 .cal-dows{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
 .cal-dow{text-align:center;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);font-weight:700}
 .cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.cal-day{min-height:62px;border-radius:10px;border:1px solid rgba(255,255,255,.55);background:rgba(255,255,255,.28);padding:4px 4px 3px;display:flex;flex-direction:column;gap:2px}
+.cal-day{min-height:74px;border-radius:10px;border:1px solid rgba(255,255,255,.55);background:rgba(255,255,255,.28);padding:4px 4px 3px;display:flex;flex-direction:column;gap:2px}
 .cal-day.fuori{opacity:.35}
 .cal-day.oggi{border-color:var(--terracotta);box-shadow:0 0 0 2px rgba(94,130,94,.16)}
 .cal-day .num{font-size:11.5px;color:var(--ink-soft);text-align:right;padding-right:2px}
@@ -203,6 +203,7 @@ td,th{ border-color:rgba(255,255,255,.55)!important; }
 .cal-ev{font-size:9px;line-height:1.25;border-radius:5px;padding:2px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cal-ev.app{background:rgba(94,130,94,.20);color:#3f6b2b}
 .cal-ev.acc{background:rgba(184,156,90,.26);color:#8a6d2f;font-weight:600}
+.cal-ev.acc.fatto{opacity:.5;text-decoration:line-through}
 .cal-ev.noz{background:linear-gradient(135deg,#2d4329,#4a6e45);color:#f6f0e7;text-align:center}
 .cal-legenda{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-bottom:16px;font-size:12px;color:var(--ink-soft)}
 .cal-legenda span{display:inline-flex;align-items:center;gap:6px}
@@ -583,7 +584,7 @@ function renderAppuntamenti(){
       <div class="num">${d.getDate()}</div>
       ${suoi.slice(0,3).map(e=>{
         if(e.tipo==='noz') return `<div class="cal-ev noz" title="Il Grande Giorno">❦</div>`;
-        if(e.tipo==='acc') return `<div class="cal-ev acc" title="${esc(e.titolo)} — € ${money(e.importo)}">€ ${money(e.importo)}</div>`;
+        if(e.tipo==='acc') return `<div class="cal-ev acc ${e.pagato?'fatto':''}" title="${esc(e.titolo)}${e.fornitore?' · '+esc(e.fornitore):''} — € ${money(e.importo)}${e.pagato?' (versato)':''}">💶 ${money(e.importo)} · ${esc(e.titolo)}</div>`;
         return `<div class="cal-ev app" title="${esc(e.titolo)}">${esc(e.titolo)}</div>`;
       }).join('')}
       ${suoi.length>3?`<div class="cal-ev" style="color:var(--ink-muted)">+${suoi.length-3}</div>`:''}
