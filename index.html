@@ -321,7 +321,20 @@ async function doAuth(){
   if(!session.pin){ err.textContent = 'Inserisci il PIN.'; return; }
   try{
     const j = await api(`/wedding/${WEDDING_ID}/auth`, { method:'POST', body:{ pin: session.pin } });
-    data = { couple: j.couple || {}, sharedRows: j.sharedRows || [] };
+    // ATTENZIONE: qui va conservato TUTTO ciò che arriva dal server.
+    // Tenere solo alcuni campi significa perderli, e al primo salvataggio
+    // si sovrascriverebbero sul server con liste vuote.
+    data = {
+      couple:          j.couple || {},
+      sharedRows:      j.sharedRows || [],
+      review:          j.review || null,
+      tables:          j.tables || [],
+      tablesUpdatedAt: j.tablesUpdatedAt || 0,
+      guests:          j.guests || [],
+      guestsUpdatedAt: j.guestsUpdatedAt || 0,
+      tasks:           j.tasks || [],
+      appointments:    j.appointments || [],
+    };
     document.getElementById('gate').style.display = 'none';
     document.getElementById('content').style.display = 'block';
     renderContent();
@@ -329,6 +342,15 @@ async function doAuth(){
     err.textContent = e.message === 'PIN errato' ? 'PIN errato, riprova.' : e.message;
   }
 }
+
+// Se la pagina viene chiusa o messa in secondo piano mentre un salvataggio
+// è ancora in attesa, lo mandiamo subito invece di perderlo.
+function inviaSubitoSePendente(){
+  if(salvataggioTavoli){ clearTimeout(salvataggioTavoli); salvataggioTavoli = null; inviaTavoli(); }
+  if(salvataggioInvitati){ clearTimeout(salvataggioInvitati); salvataggioInvitati = null; inviaInvitati(); }
+}
+window.addEventListener('pagehide', inviaSubitoSePendente);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'hidden') inviaSubitoSePendente(); });
 
 function groupByCategory(){
   const quotes = data.sharedRows.filter(r => r.category && r.amount != null && r.amount !== '');
@@ -529,21 +551,25 @@ function tavoli(){ return data.tables || (data.tables = []); }
 
 function nuovoId(){ return 't' + Math.random().toString(36).slice(2, 9); }
 
-function salvaTavoli(){
+async function inviaTavoli(){
+  try{
+    const j = await api(`/wedding/${WEDDING_ID}/tables`, { method:'POST', body:{ pin:session.pin, tables:tavoli() } });
+    data.tablesUpdatedAt = j.tablesUpdatedAt;
+    const n = document.getElementById('tbl-sync');
+    if(n) n.textContent = 'Salvato — la vostra wedding planner lo vede subito';
+  }catch(e){
+    const n = document.getElementById('tbl-sync');
+    if(n) n.textContent = 'Non salvato: ' + (e.message || 'errore di rete');
+  }
+}
+
+// subito = true per aggiunte, eliminazioni e rotazioni; con attesa mentre si scrive
+function salvaTavoli(subito){
   clearTimeout(salvataggioTavoli);
   const nota = document.getElementById('tbl-sync');
   if(nota) nota.textContent = 'Salvataggio…';
-  salvataggioTavoli = setTimeout(async ()=>{
-    try{
-      const j = await api(`/wedding/${WEDDING_ID}/tables`, { method:'POST', body:{ pin:session.pin, tables:tavoli() } });
-      data.tablesUpdatedAt = j.tablesUpdatedAt;
-      const n = document.getElementById('tbl-sync');
-      if(n) n.textContent = 'Salvato — la vostra wedding planner lo vede subito';
-    }catch(e){
-      const n = document.getElementById('tbl-sync');
-      if(n) n.textContent = 'Non salvato: ' + (e.message || 'errore di rete');
-    }
-  }, 600);
+  if(subito){ salvataggioTavoli = null; inviaTavoli(); return; }
+  salvataggioTavoli = setTimeout(()=>{ salvataggioTavoli = null; inviaTavoli(); }, 600);
 }
 
 function aggiungiTavolo(){
@@ -560,7 +586,7 @@ function aggiungiTavolo(){
     createdBy: 'couple',
   });
   tavoloSel = tavoli()[tavoli().length - 1].id;
-  salvaTavoli();
+  salvaTavoli(true);
   renderContent();
 }
 
@@ -591,7 +617,7 @@ function campoTavolo(id, campo, val){
 function ruotaTavolo(id, verso){
   const t = tavoli().find(x=>x.id===id); if(!t) return;
   t.orient = verso === 'v' ? 'v' : 'h';
-  salvaTavoli();
+  salvaTavoli(true);
   renderContent();
 }
 
@@ -601,7 +627,7 @@ function eliminaTavolo(id){
   if(!confirm(`Eliminare "${t.name || 'il tavolo'}"?`)) return;
   data.tables = tavoli().filter(x=>x.id!==id);
   if(tavoloSel === id) tavoloSel = null;
-  salvaTavoli();
+  salvaTavoli(true);
   renderContent();
 }
 
@@ -674,7 +700,7 @@ function assegnaPosto(idTavolo, posto, idOspite){
   }
   if(!t.assignments) t.assignments = new Array(t.seats||0).fill(null);
   t.assignments[posto] = idOspite || null;
-  salvaTavoli();
+  salvaTavoli(true);
   closeModal();
   renderContent();
 }
@@ -684,21 +710,24 @@ let salvataggioInvitati = null;
 
 function invitati(){ return data.guests || (data.guests = []); }
 
-function salvaInvitati(){
+async function inviaInvitati(){
+  try{
+    const j = await api(`/wedding/${WEDDING_ID}/guests`, { method:'POST', body:{ pin:session.pin, guests:invitati() } });
+    data.guestsUpdatedAt = j.guestsUpdatedAt;
+    const el = document.getElementById('g-sync');
+    if(el) el.textContent = 'Salvato — la vostra wedding planner lo vede subito';
+  }catch(e){
+    const el = document.getElementById('g-sync');
+    if(el) el.textContent = 'Non salvato: ' + (e.message || 'errore di rete');
+  }
+}
+
+function salvaInvitati(subito){
   clearTimeout(salvataggioInvitati);
   const n = document.getElementById('g-sync');
   if(n) n.textContent = 'Salvataggio…';
-  salvataggioInvitati = setTimeout(async ()=>{
-    try{
-      const j = await api(`/wedding/${WEDDING_ID}/guests`, { method:'POST', body:{ pin:session.pin, guests:invitati() } });
-      data.guestsUpdatedAt = j.guestsUpdatedAt;
-      const el = document.getElementById('g-sync');
-      if(el) el.textContent = 'Salvato — la vostra wedding planner lo vede subito';
-    }catch(e){
-      const el = document.getElementById('g-sync');
-      if(el) el.textContent = 'Non salvato: ' + (e.message || 'errore di rete');
-    }
-  }, 700);
+  if(subito){ salvataggioInvitati = null; inviaInvitati(); return; }
+  salvataggioInvitati = setTimeout(()=>{ salvataggioInvitati = null; inviaInvitati(); }, 700);
 }
 
 // Aggiorna il modello SENZA ridisegnare: il campo mantiene il fuoco
@@ -719,7 +748,7 @@ function aggiungiInvitato(){
   const nt = note ? note.value.trim() : '';
   if(!n && !c){ if(nome) nome.focus(); return; }
   invitati().push({ id:'g'+Math.random().toString(36).slice(2,9), firstName:n, lastName:c, notes:nt, confirmed:false, createdBy:'couple' });
-  salvaInvitati();
+  salvaInvitati(true);
   renderContent();
   setTimeout(()=>{ const f=document.getElementById('g-new-first'); if(f) f.focus(); }, 30);
 }
@@ -753,7 +782,7 @@ function eliminaInvitato(id){
   (data.tables||[]).forEach(t=>{
     (t.assignments||[]).forEach((a,i)=>{ if(a===id) t.assignments[i]=null; });
   });
-  salvaInvitati();
+  salvaInvitati(true);
   renderContent();
 }
 
