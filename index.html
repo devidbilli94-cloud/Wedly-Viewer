@@ -196,8 +196,8 @@ td,th{ border-color:rgba(255,255,255,.55)!important; }
 
 /* ===== Tavoli ===== */
 .tbl-wrap{position:relative;background:rgba(255,253,249,.45);border:1px solid rgba(255,255,255,.6);border-radius:var(--radius);min-height:380px;overflow:auto}
-.tnode{position:absolute;display:flex;align-items:center;justify-content:center}
-.tshape{background:rgba(94,130,94,.14);border:1.5px solid rgba(94,130,94,.45);display:flex;align-items:center;justify-content:center;text-align:center;font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:600;color:var(--terracotta);padding:4px}
+.tnode{position:absolute}
+.tshape{position:absolute;background:rgba(94,130,94,.14);border:1.5px solid rgba(94,130,94,.45);display:flex;align-items:center;justify-content:center;text-align:center;font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:600;color:var(--terracotta);padding:4px}
 .seat{position:absolute;width:22px;height:22px;border-radius:50%;background:var(--bg-card);border:1.5px solid var(--line);font-size:8.5px;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);overflow:hidden}
 .seat.taken{background:rgba(94,130,94,.20);border-color:var(--terracotta);color:var(--terracotta);font-weight:700}
 .tbl-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
@@ -225,15 +225,20 @@ td,th{ border-color:rgba(255,255,255,.55)!important; }
 .seat-pick button:hover{border-color:var(--terracotta);color:var(--terracotta)}
 .seat-pick .busy{opacity:.55}
 .sync-note{font-size:12.5px;color:var(--ink-muted);text-align:center;margin-top:10px;font-style:italic}
-.g-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.g-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+@media(max-width:520px){.g-stats{grid-template-columns:repeat(2,1fr)}}
 .g-stat{background:rgba(255,253,249,.58);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.7);border-radius:var(--radius);padding:13px 14px;text-align:center;box-shadow:0 8px 32px rgba(76,56,36,.08)}
 .g-stat .n{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;color:var(--terracotta);line-height:1}
 .g-stat .l{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-muted);margin-top:4px}
 .g-row{display:flex;gap:9px;align-items:center;background:rgba(255,253,249,.5);border:1px solid rgba(255,255,255,.6);border-radius:var(--radius-sm);padding:9px 11px;margin-bottom:8px}
 .g-row input[type=text]{flex:1;min-width:0;padding:8px 10px;border:1.5px solid rgba(94,130,94,.28);border-radius:10px;background:rgba(255,255,255,.6);font-family:inherit;font-size:14px;color:var(--ink)}
 .g-row input[type=text]:focus{outline:none;border-color:var(--terracotta)}
-.g-ok{width:30px;height:30px;flex-shrink:0;border-radius:50%;border:2px solid rgba(94,130,94,.35);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff}
+.g-ok{width:26px;height:26px;flex-shrink:0;border-radius:7px;border:1.8px solid rgba(94,130,94,.35);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700;line-height:1;transition:all .15s}
+.g-ok:hover{border-color:var(--terracotta)}
 .g-ok.on{background:var(--olive);border-color:var(--olive)}
+.g-row{flex-wrap:wrap}
+.g-note{flex:2 1 190px;min-width:150px}
+.g-lbl{display:none}
 .g-del{background:none;border:none;color:var(--ink-muted);font-size:16px;cursor:pointer;padding:4px 6px;border-radius:8px;flex-shrink:0}
 .g-del:hover{color:var(--burgundy);background:rgba(122,46,59,.08)}
 .g-seat{font-size:11px;color:var(--ink-muted);white-space:nowrap;flex-shrink:0}
@@ -666,16 +671,19 @@ function salvaInvitati(){
 function campoInvitato(id, campo, val){
   const g = invitati().find(x=>x.id===id); if(!g) return;
   g[campo] = val;
+  if(campo === 'notes') aggiornaContatoriInvitati();   // solo i numeri, niente ridisegno
   salvaInvitati();
 }
 
 function aggiungiInvitato(){
   const nome = document.getElementById('g-new-first');
   const cognome = document.getElementById('g-new-last');
+  const note = document.getElementById('g-new-note');
   const n = nome ? nome.value.trim() : '';
   const c = cognome ? cognome.value.trim() : '';
+  const nt = note ? note.value.trim() : '';
   if(!n && !c){ if(nome) nome.focus(); return; }
-  invitati().push({ id:'g'+Math.random().toString(36).slice(2,9), firstName:n, lastName:c, confirmed:false, createdBy:'couple' });
+  invitati().push({ id:'g'+Math.random().toString(36).slice(2,9), firstName:n, lastName:c, notes:nt, confirmed:false, createdBy:'couple' });
   salvaInvitati();
   renderContent();
   setTimeout(()=>{ const f=document.getElementById('g-new-first'); if(f) f.focus(); }, 30);
@@ -688,7 +696,7 @@ function confermaInvitato(id){
   const btn = document.querySelector(`[data-gok="${id}"]`);
   if(btn){
     btn.classList.toggle('on', g.confirmed);
-    btn.innerHTML = g.confirmed ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"/></svg>' : '';
+    btn.textContent = g.confirmed ? '✓' : '';
   }
   aggiornaContatoriInvitati();
 }
@@ -696,8 +704,9 @@ function confermaInvitato(id){
 function aggiornaContatoriInvitati(){
   const tot = invitati().length;
   const ok = invitati().filter(g=>g.confirmed).length;
+  const nt = invitati().filter(g=>(g.notes||'').trim()).length;
   const set = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent = v; };
-  set('g-tot', tot); set('g-ok', ok); set('g-wait', tot-ok);
+  set('g-tot', tot); set('g-ok', ok); set('g-wait', tot-ok); set('g-note', nt);
 }
 
 function eliminaInvitato(id){
@@ -721,20 +730,23 @@ function dovesiede(id){
 function renderInvitati(){
   const list = invitati();
   const ok = list.filter(g=>g.confirmed).length;
+  const conNote = list.filter(g=>(g.notes||'').trim()).length;
 
   const aggiunta = `
     <div class="g-add">
       <input id="g-new-first" type="text" placeholder="Nome" onkeydown="if(event.key==='Enter'){document.getElementById('g-new-last').focus();}">
-      <input id="g-new-last" type="text" placeholder="Cognome" onkeydown="if(event.key==='Enter'){event.preventDefault();aggiungiInvitato();}">
+      <input id="g-new-last" type="text" placeholder="Cognome" onkeydown="if(event.key==='Enter'){document.getElementById('g-new-note').focus();}">
+      <input id="g-new-note" type="text" placeholder="Intolleranze / note" onkeydown="if(event.key==='Enter'){event.preventDefault();aggiungiInvitato();}">
       <button class="btn btn-primary" onclick="aggiungiInvitato()">Aggiungi</button>
     </div>`;
 
   const righe = list.map(g=>{
     const posto = dovesiede(g.id);
     return `<div class="g-row">
-      <button class="g-ok ${g.confirmed?'on':''}" data-gok="${g.id}" title="Conferma presenza" onclick="confermaInvitato('${g.id}')">${g.confirmed?'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"/></svg>':''}</button>
+      <button class="g-ok ${g.confirmed?'on':''}" data-gok="${g.id}" title="Conferma presenza" onclick="confermaInvitato('${g.id}')">${g.confirmed?'✓':''}</button>
       <input type="text" value="${esc(g.firstName||'')}" placeholder="Nome" oninput="campoInvitato('${g.id}','firstName',this.value)">
       <input type="text" value="${esc(g.lastName||'')}" placeholder="Cognome" oninput="campoInvitato('${g.id}','lastName',this.value)">
+      <input class="g-note" type="text" value="${esc(g.notes||'')}" placeholder="Intolleranze / note" oninput="campoInvitato('${g.id}','notes',this.value)">
       ${posto?`<span class="g-seat">${esc(posto)}</span>`:''}
       <button class="g-del" title="Elimina" onclick="eliminaInvitato('${g.id}')">✕</button>
     </div>`;
@@ -745,11 +757,50 @@ function renderInvitati(){
       <div class="g-stat"><div class="n" id="g-tot">${list.length}</div><div class="l">Invitati</div></div>
       <div class="g-stat"><div class="n" id="g-ok">${ok}</div><div class="l">Confermati</div></div>
       <div class="g-stat"><div class="n" id="g-wait">${list.length-ok}</div><div class="l">In attesa</div></div>
+      <div class="g-stat"><div class="n" id="g-note">${conNote}</div><div class="l">Con note</div></div>
     </div>
     ${aggiunta}
     ${list.length ? righe : '<div class="empty">Nessun invitato ancora.<br>Scrivete nome e cognome qui sopra per iniziare.</div>'}
     <div class="sync-note" id="g-sync"></div>
   `;
+}
+
+// Calcola sagoma e posti. I posti stanno SEMPRE fuori dal bordo del tavolo:
+// PAD è lo spazio riservato attorno alla sagoma, GAP la distanza dal bordo.
+const POSTO = 22, PAD = 32, GAP = 7;
+
+function geometriaTavolo(t){
+  const n = Math.max(0, t.seats || 0);
+  const tonda = (t.shape || 'round') !== 'rect';
+  const r = POSTO / 2;
+
+  if (tonda) {
+    const d = Math.round(84 + n * 2.4);          // il tavolo cresce coi posti
+    const w = d + PAD * 2, cx = PAD + d / 2;
+    const raggio = d / 2 + GAP + r;              // centro del posto, fuori dal bordo
+    const posti = [];
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * 2 * Math.PI - Math.PI / 2;
+      posti.push({ x: Math.round(cx + Math.cos(a) * raggio - r), y: Math.round(cx + Math.sin(a) * raggio - r) });
+    }
+    return { tonda: true, w, h: w, sx: PAD, sy: PAD, sw: d, sh: d, posti };
+  }
+
+  const sopra = Math.ceil(n / 2), sotto = n - sopra;
+  const sw = Math.max(110, sopra * 34 + 26), sh = 82;
+  const w = sw + PAD * 2, h = sh + PAD * 2;
+  const posti = [];
+  const fila = (quanti, indiceBase, y) => {
+    for (let i = 0; i < quanti; i++) {
+      posti[indiceBase + i] = {
+        x: Math.round(PAD + (i + 0.5) * (sw / quanti) - r),
+        y: Math.round(y),
+      };
+    }
+  };
+  if (sopra) fila(sopra, 0, PAD - GAP - POSTO);       // sopra il bordo
+  if (sotto) fila(sotto, sopra, PAD + sh + GAP);      // sotto il bordo
+  return { tonda: false, w, h, sx: PAD, sy: PAD, sw, sh, posti };
 }
 
 function renderTavoli(){
@@ -768,37 +819,22 @@ function renderTavoli(){
   }
 
   let maxX=0, maxY=0;
-  tables.forEach(t=>{ maxX=Math.max(maxX,(t.x||0)+240); maxY=Math.max(maxY,(t.y||0)+240); });
+  tables.forEach(t=>{ const g=geometriaTavolo(t); maxX=Math.max(maxX,(t.x||0)+g.w+20); maxY=Math.max(maxY,(t.y||0)+g.h+20); });
 
   const nodes = tables.map(t=>{
-    const n = t.seats||0;
-    const tonda = (t.shape||'round')==='round';
-    const size = tonda ? 96 : 120;
-    const seats = [];
-    for(let i=0;i<n;i++){
+    const g = geometriaTavolo(t);
+    const seats = g.posti.map((pos, i) => {
       const nome = guestName((t.assignments||[])[i]);
-      let sx, sy;
-      if(tonda){
-        const ang = (i/n)*2*Math.PI - Math.PI/2;
-        sx = 60 + Math.cos(ang)*66; sy = 60 + Math.sin(ang)*66;
-      }else{
-        const perRow = Math.ceil(n/2);
-        const riga = i<perRow ? 0 : 1;
-        const col = i - riga*perRow;
-        const tot = riga===0 ? perRow : n-perRow;
-        sx = 20 + (col+0.5)*(140/Math.max(tot,1)) - 11;
-        sy = riga===0 ? -6 : 106;
-      }
-      seats.push(`<div class="seat edit ${nome?'taken':''}" style="left:${sx}px;top:${sy}px"
+      return `<div class="seat edit ${nome?'taken':''}" style="left:${pos.x}px;top:${pos.y}px"
         title="${esc(nome||'Posto libero')}"
         onpointerdown="event.stopPropagation()"
-        onclick="event.stopPropagation();scegliInvitato('${t.id}',${i})">${nome?esc(iniziali(nome)):''}</div>`);
-    }
-    return `<div class="tnode edit ${tavoloSel===t.id?'sel':''}" style="left:${t.x||0}px;top:${t.y||0}px;width:${size+40}px;height:${size+40}px"
+        onclick="event.stopPropagation();scegliInvitato('${t.id}',${i})">${nome?esc(iniziali(nome)):''}</div>`;
+    }).join('');
+    return `<div class="tnode edit ${tavoloSel===t.id?'sel':''}" style="left:${t.x||0}px;top:${t.y||0}px;width:${g.w}px;height:${g.h}px"
         onpointerdown="iniziaTrascina(event,'${t.id}')" onpointermove="muoviTrascina(event)"
         onpointerup="fineTrascina(event)" onpointercancel="fineTrascina(event)">
-      <div class="tshape" data-tnome="${t.id}" style="width:${tonda?96:140}px;height:${tonda?96:96}px;border-radius:${tonda?'50%':'12px'}">${esc(t.name||'Tavolo')}</div>
-      ${seats.join('')}
+      <div class="tshape" data-tnome="${t.id}" style="left:${g.sx}px;top:${g.sy}px;width:${g.sw}px;height:${g.sh}px;border-radius:${g.tonda?'50%':'12px'}">${esc(t.name||'Tavolo')}</div>
+      ${seats}
     </div>`;
   }).join('');
 
