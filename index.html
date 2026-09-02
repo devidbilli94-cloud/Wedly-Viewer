@@ -27,10 +27,11 @@ body{
 .wrap{max-width:880px;margin:0 auto;padding:32px 20px 80px}
 
 /* Brand */
-.brand{text-align:center;margin-bottom:8px}
+.brand{text-align:center;margin-bottom:14px}
 .brand .logo{font-family: 'Playfair Display', serif; font-weight: 500; letter-spacing: 0.01em;font-size: 34px;color:var(--terracotta);line-height:1;-webkit-text-stroke:0.6px var(--terracotta)}
 .brand .sub{font-family:'Playfair Display',serif;font-style:italic;font-size: 13.9px;color:var(--ink-soft);margin-top:6px}
-.brand-logo{display:block;width:100%;max-width:300px;height:auto;margin:0 auto}
+.brand-logo{display:block;width:100%;max-width:460px;height:auto;margin:0 auto}
+@media(max-width:520px){.brand-logo{max-width:88vw}}
 
 /* PIN screen */
 .gate{max-width:420px;margin:40px auto 0;background:var(--bg-elevated);border:1px solid var(--line);border-radius:var(--radius);padding:32px;box-shadow:0 10px 40px rgba(42,34,28,.08)}
